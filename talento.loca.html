@@ -6,10 +6,13 @@
   <title>Talento Local | Plataforma Profesional</title>
   <!-- OpenLayers CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.4.0/ol.css">
-  <!-- Map Library: OpenLayers -->
+  <!-- Map Library: OpenLayers as global script -->
   <script src="https://cdn.jsdelivr.net/npm/ol@v7.4.0/dist/ol.js"></script>
-  <!-- Supabase SDK -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <style>
     :root {
       --primary: #0f172a;
@@ -93,7 +96,7 @@
       transition: var(--transition);
       font-size: 1.05rem;
       position: relative;
-      /* Fondo ligeramente transparente */
+      backdrop-filter: blur(10px);
       background: rgba(255,255,255,0.08);
       border: 1px solid rgba(255,255,255,0.15);
     }
@@ -480,6 +483,753 @@
   </style>
 </head>
 <body>
-  <!-- ... El resto de tu HTML y JavaScript permanece exactamente igual ... -->
+  <div id="app">
+    <header>
+      <div class="logo">
+        <div class="logo-icon">TL</div>
+        Talento<span style="background: linear-gradient(135deg, var(--secondary) 0%, var(--accent) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Local</span>
+      </div>
+      <nav>
+        <ul>
+          <li><a href="#" id="nav-home" class="nav-link active">Plataforma</a></li>
+          <li><a href="#" id="nav-talents" class="nav-link">Talentos</a></li>
+          <li><a href="#" id="nav-register" class="nav-link">Unirse</a></li>
+          <li><a href="#" id="nav-profile" class="nav-link" style="display: none;">Mi Perfil</a></li>
+          <li><a href="#" id="nav-login" class="nav-link">Iniciar Sesión</a></li>
+        </ul>
+      </nav>
+    </header>
+    <!-- Home View -->
+    <div id="home-view" class="view active">
+      <div class="hero">
+        <h1>La Plataforma Definitiva para Talentos Profesionales</h1>
+        <p>Conectamos a los mejores profesionales con oportunidades reales en todo el país.</p>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="search-input" placeholder="Buscar por profesión, nombre o especialidad...">
+      </div>
+      <div class="stats">
+        <div class="stat-card">
+          <div class="value">10,000+</div>
+          <div class="label">Profesionales Activos</div>
+        </div>
+        <div class="stat-card">
+          <div class="value">500+</div>
+          <div class="label">Especialidades</div>
+        </div>
+        <div class="stat-card">
+          <div class="value">99.8%</div>
+          <div class="label">Satisfacción</div>
+        </div>
+        <div class="stat-card">
+          <div class="value">24/7</div>
+          <div class="label">Soporte Premium</div>
+        </div>
+      </div>
+      <div class="instructions">
+        <h3>Defina su Zona de Operaciones</h3>
+        <ul>
+          <li><strong>Haga clic</strong> en el mapa para establecer el centro de su área de servicio</li>
+          <li><strong>Ajuste el radio</strong> utilizando los controles para definir su cobertura geográfica</li>
+          <li><strong>El sistema inteligente</strong> mostrará su disponibilidad en tiempo real a clientes potenciales</li>
+        </ul>
+      </div>
+      <div id="map-container" style="position: relative;">
+        <div id="map"></div>
+        <div id="radio-display" class="radio-display">Radio: <span id="radio-value">0</span> m</div>
+      </div>
+      <div class="map-controls">
+        <button class="control-btn" id="decreaseRadius" disabled>Reducir Radio</button>
+        <button class="control-btn" id="increaseRadius" disabled>Ampliar Radio</button>
+      </div>
+      <div class="map-info">
+        <p><strong>Ubicación:</strong> <span id="location-coords">No definida</span></p>
+        <p><strong>Radio de cobertura:</strong> <span id="coverage-radius">0</span> metros</p>
+      </div>
+    </div>
+    <!-- Talents View -->
+    <div id="talents-view" class="view">
+      <div class="hero">
+        <h1>Directorio de Talentos Certificados</h1>
+        <p>Profesionales verificados, calificados y listos para servirle con excelencia.</p>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="talents-search" placeholder="Buscar talentos por nombre, profesión o ubicación...">
+      </div>
+      <div id="talents-list" class="products-grid">
+        <!-- Talents will be loaded here -->
+      </div>
+    </div>
+    <!-- Register View -->
+    <div id="register-view" class="view">
+      <div class="hero">
+        <h1>Únase a la Red de Élite</h1>
+        <p>Registre su perfil profesional y acceda a oportunidades exclusivas en todo el territorio nacional.</p>
+      </div>
+      <div class="form-container">
+        <form id="talentForm">
+          <div class="form-group">
+            <label for="fullName">Nombre Completo *</label>
+            <input type="text" id="fullName" required>
+          </div>
+          <div class="form-group">
+            <label for="profession">Especialidad Profesional *</label>
+            <select id="profession" required>
+              <option value="">Seleccione su especialidad</option>
+              <option value="carpintero">Carpintería de Alta Gama</option>
+              <option value="electricista">Electricista Certificado</option>
+              <option value="plomero">Plomería Profesional</option>
+              <option value="diseñador">Diseño Gráfico Premium</option>
+              <option value="chef">Gastronomía de Autor</option>
+              <option value="musico">Producción Musical</option>
+              <option value="fotografo">Fotografía Profesional</option>
+              <option value="otros">Otra Especialidad</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="phone">Teléfono Corporativo *</label>
+            <input type="tel" id="phone" required>
+          </div>
+          <div class="form-group">
+            <label for="email">Correo Profesional *</label>
+            <input type="email" id="email" required>
+          </div>
+          <div class="form-group">
+            <label for="description">Perfil Profesional (opcional)</label>
+            <textarea id="description" rows="4" placeholder="Describa su experiencia, certificaciones y enfoque profesional..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Zona de Operaciones</label>
+            <div class="map-info">
+              <p><strong>Ubicación:</strong> <span id="form-location">No definida</span></p>
+              <p><strong>Radio de cobertura:</strong> <span id="form-radius">0</span> metros</p>
+              <p class="warning-text">* Defina su ubicación en la Plataforma antes de registrar</p>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn">Registrar Perfil Profesional</button>
+            <button type="button" class="btn btn-outline" id="define-location-btn">Definir Ubicación</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- Profile View -->
+    <div id="profile-view" class="view">
+      <div class="hero">
+        <h1>Mi Perfil Profesional</h1>
+        <p>Gestione su información, productos y configuración de verificación.</p>
+      </div>
+      <div class="form-container">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <div id="profile-avatar" style="display: inline-block; width: 120px; height: 120px; border-radius: 50%; background: var(--gray-200); margin-bottom: 16px; cursor: pointer;">
+          </div>
+          <h3 id="profile-name">Nombre del Profesional</h3>
+          <p id="profile-email">email@profesional.com</p>
+        </div>
+        <form id="profileForm">
+          <div class="form-group">
+            <label for="profileFullName">Nombre Completo *</label>
+            <input type="text" id="profileFullName" required>
+          </div>
+          <div class="form-group">
+            <label for="profileProfession">Especialidad Profesional *</label>
+            <select id="profileProfession" required>
+              <option value="">Seleccione su especialidad</option>
+              <option value="carpintero">Carpintería de Alta Gama</option>
+              <option value="electricista">Electricista Certificado</option>
+              <option value="plomero">Plomería Profesional</option>
+              <option value="diseñador">Diseño Gráfico Premium</option>
+              <option value="chef">Gastronomía de Autor</option>
+              <option value="musico">Producción Musical</option>
+              <option value="fotografo">Fotografía Profesional</option>
+              <option value="otros">Otra Especialidad</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="profilePhone">Teléfono Corporativo *</label>
+            <input type="tel" id="profilePhone" required>
+          </div>
+          <div class="form-group">
+            <label for="profileDescription">Perfil Profesional</label>
+            <textarea id="profileDescription" rows="4"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Promoción Destacada</label>
+            <div class="boost-section">
+              <p><strong>Estado actual:</strong> <span id="boost-status">No activo</span></p>
+              <div class="boost-options">
+                <button type="button" class="btn btn-outline" id="boost-7">7 días - $29.99</button>
+                <button type="button" class="btn btn-outline" id="boost-30">30 días - $99.99</button>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Analítica Premium</label>
+            <div class="analytics-section">
+              <p><strong>Vistas en los últimos 30 días:</strong> <span id="analytics-views">0</span></p>
+              <p><strong>Mensajes recibidos:</strong> <span id="analytics-messages">0</span></p>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn">Guardar Cambios</button>
+            <button type="button" class="btn btn-outline" id="logout-btn">Cerrar Sesión</button>
+          </div>
+        </form>
+      </div>
+      <h3 style="margin: 48px 0 24px; text-align: center;">Mis Productos</h3>
+      <div id="my-products-list" class="products-grid">
+        <!-- User's products will be loaded here -->
+      </div>
+    </div>
+    <!-- Login View -->
+    <div id="login-view" class="view">
+      <div class="hero">
+        <h1>Iniciar Sesión en Talento Local</h1>
+        <p>Acceda a su perfil profesional y gestione sus servicios y productos.</p>
+      </div>
+      <div class="form-container">
+        <form id="loginForm">
+          <div class="form-group">
+            <label for="loginEmail">Correo Electrónico *</label>
+            <input type="email" id="loginEmail" required>
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Contraseña *</label>
+            <input type="password" id="loginPassword" required>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn">Iniciar Sesión</button>
+            <button type="button" class="btn btn-outline" id="create-account-btn">Crear Cuenta</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- Chat View -->
+    <div id="chat-view" class="view">
+      <div class="chat-header">
+        <button class="btn btn-outline" id="back-to-talents">← Volver</button>
+        <h2 id="chat-title">Chat con [Nombre del Talento]</h2>
+      </div>
+      <div id="chat-messages" class="chat-messages">
+        <!-- Messages will be loaded here -->
+      </div>
+      <div class="chat-input">
+        <input type="text" id="message-input" placeholder="Escribe tu mensaje...">
+        <button class="btn" id="send-message-btn">Enviar</button>
+      </div>
+    </div>
+    <!-- About View -->
+    <div id="about-view" class="view">
+      <div class="hero">
+        <h1>Sobre Talento Local</h1>
+        <p>Líder indiscutido en la conexión de talento profesional con oportunidades de alto valor.</p>
+      </div>
+      <div style="background: linear-gradient(135deg, white 0%, #f8fafc 100%); padding: 40px; border-radius: var(--radius); box-shadow: var(--shadow-lg); border: 1px solid rgba(0,0,0,0.05);">
+        <p style="font-size: 1.2rem; color: var(--gray-600); margin-bottom: 24px; line-height: 1.8;">
+          <strong>Talento Local</strong> es la plataforma de referencia nacional para profesionales independientes y empresas que buscan excelencia en servicios y productos. 
+          Fundada con la misión de elevar el estándar del trabajo profesional en el país, hemos construido un ecosistema donde el talento se encuentra con las mejores oportunidades.
+        </p>
+        <p style="font-size: 1.2rem; color: var(--gray-600); line-height: 1.8;">
+          Nuestra tecnología de geolocalización inteligente, combinada con un riguroso proceso de verificación, garantiza que cada conexión sea de la más alta calidad, 
+          posicionándonos como la empresa líder en nuestro sector a nivel nacional.
+        </p>
+      </div>
+    </div>
+    <footer>
+      <p>&copy; 2025 Talento Local. Empresa Líder Nacional en Conexión de Talentos Profesionales.</p>
+    </footer>
+  </div>
+  <script>
+    // ========================================
+    // CONFIGURACIÓN DE FIREBASE CON COMILLAS SIMPLES
+    // ========================================
+    const firebaseConfig = {
+      apiKey: 'YOUR_API_KEY_HERE',
+      authDomain: 'your-project.firebaseapp.com',
+      projectId: 'your-project',
+      storageBucket: 'your-project.appspot.com',
+      messagingSenderId: '123456789',
+      appId: '1:123456789:web:abcdef123456789'
+    };
+    // Initialize Firebase
+    let db, auth, storage;
+    try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
+      auth = firebase.auth();
+      storage = firebase.storage();
+    } catch (error) {
+      console.warn('Firebase not initialized:', error);
+    }
+    // Global state for map data
+    let mapData = {
+      location: null,
+      radius: 0
+    };
+    let map = null;
+    let mapInitialized = false;
+    let pointFeature = null;
+    let circleFeature = null;
+    let vectorSource = null;
+    let currentRadius = 0; // meters
+    let currentUser = null;
+    // Map Functions
+    function initializeMap() {
+      if (mapInitialized) return;
+      vectorSource = new ol.source.Vector();
+      const vectorLayer = new ol.layer.Vector({
+        source: vectorSource,
+        style: function(feature) {
+          const geometryType = feature.getGeometry().getType();
+          if (geometryType === 'Point') {
+            return new ol.style.Style({
+              image: new ol.style.Circle({
+                radius: 14,
+                fill: new ol.style.Fill({ color: 'rgba(14, 165, 233, 0.95)' }),
+                stroke: new ol.style.Stroke({ color: '#ffffff', width: 3 })
+              })
+            });
+          } else if (geometryType === 'Polygon') {
+            return new ol.style.Style({
+              fill: new ol.style.Fill({ color: 'rgba(14, 165, 233, 0.12)' }),
+              stroke: new ol.style.Stroke({ color: '#0ea5e9', width: 3 })
+            });
+          }
+        }
+      });
+      map = new ol.Map({
+        target: 'map',
+        layers: [
+          new ol.layer.Tile({
+            source: new ol.source.OSM()
+          }),
+          vectorLayer
+        ],
+        view: new ol.View({
+          center: ol.proj.fromLonLat([-58.3816, -34.6037]),
+          zoom: 12
+        })
+      });
+      map.on('click', function(evt) {
+        const coordinate = evt.coordinate;
+        createOrUpdateMarker(coordinate);
+        enableRadiusControls();
+      });
+      mapInitialized = true;
+    }
+    function createOrUpdateMarker(coordinate) {
+      if (pointFeature) vectorSource.removeFeature(pointFeature);
+      if (circleFeature) vectorSource.removeFeature(circleFeature);
+      pointFeature = new ol.Feature({
+        geometry: new ol.geom.Point(coordinate)
+      });
+      vectorSource.addFeature(pointFeature);
+      if (currentRadius > 0) {
+        updateCircle(coordinate, currentRadius);
+        document.getElementById('radio-display').classList.add('active');
+      } else {
+        document.getElementById('radio-display').classList.remove('active');
+      }
+      updateMapInfo(coordinate, currentRadius);
+      mapData.location = coordinate;
+      mapData.radius = currentRadius;
+    }
+    function updateCircle(center, radiusInMeters) {
+      const center4326 = ol.proj.toLonLat(center);
+      const earthRadius = 6378137;
+      const numPoints = 64;
+      const circleCoords = [];
+      for (let i = 0; i <= numPoints; i++) {
+        const angle = (i * 2 * Math.PI) / numPoints;
+        const dx = radiusInMeters * Math.cos(angle);
+        const dy = radiusInMeters * Math.sin(angle);
+        const deltaLon = (dx / earthRadius) * (180 / Math.PI) / Math.cos(center4326[1] * Math.PI / 180);
+        const deltaLat = (dy / earthRadius) * (180 / Math.PI);
+        const pointLon = center4326[0] + deltaLon;
+        const pointLat = center4326[1] + deltaLat;
+        circleCoords.push(ol.proj.fromLonLat([pointLon, pointLat]));
+      }
+      const circlePolygon = new ol.geom.Polygon([circleCoords]);
+      circleFeature = new ol.Feature({
+        geometry: circlePolygon
+      });
+      vectorSource.addFeature(circleFeature);
+    }
+    function updateMapInfo(coordinate, radius) {
+      const lonLat = ol.proj.toLonLat(coordinate);
+      document.getElementById('location-coords').textContent = `${lonLat[1].toFixed(4)}°, ${lonLat[0].toFixed(4)}°`;
+      document.getElementById('coverage-radius').textContent = Math.round(radius);
+      document.getElementById('radio-value').textContent = Math.round(radius);
+      // Only update form fields if they exist
+      const formLocation = document.getElementById('form-location');
+      const formRadius = document.getElementById('form-radius');
+      if (formLocation && formRadius) {
+        formLocation.textContent = `${lonLat[1].toFixed(4)}°, ${lonLat[0].toFixed(4)}°`;
+        formRadius.textContent = Math.round(radius);
+      }
+    }
+    function enableRadiusControls() {
+      const decreaseBtn = document.getElementById('decreaseRadius');
+      const increaseBtn = document.getElementById('increaseRadius');
+      if (decreaseBtn && increaseBtn) {
+        decreaseBtn.disabled = false;
+        increaseBtn.disabled = false;
+      }
+    }
+    function adjustRadius(delta) {
+      if (!pointFeature) return;
+      currentRadius = Math.max(0, currentRadius + delta);
+      const coord = pointFeature.getGeometry().getCoordinates();
+      if (circleFeature) {
+        vectorSource.removeFeature(circleFeature);
+        circleFeature = null;
+      }
+      if (currentRadius > 0) {
+        updateCircle(coord, currentRadius);
+        const radioDisplay = document.getElementById('radio-display');
+        if (radioDisplay) radioDisplay.classList.add('active');
+      } else {
+        const radioDisplay = document.getElementById('radio-display');
+        if (radioDisplay) radioDisplay.classList.remove('active');
+      }
+      updateMapInfo(coord, currentRadius);
+      mapData.location = coord;
+      mapData.radius = currentRadius;
+    }
+    // Auth Functions
+    function initAuthListener() {
+      if (!auth) return;
+      auth.onAuthStateChanged(user => {
+        currentUser = user;
+        updateUIBasedOnAuthState(user);
+      });
+    }
+    async function login(email, password) {
+      if (!auth) {
+        alert('Funcionalidad de autenticación no disponible en este entorno.');
+        return;
+      }
+      try {
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        currentUser = userCredential.user;
+        return userCredential.user;
+      } catch (error) {
+        alert('Error en el inicio de sesión: ' + error.message);
+        throw error;
+      }
+    }
+    async function register(email, password) {
+      if (!auth) {
+        alert('Funcionalidad de registro no disponible en este entorno.');
+        return;
+      }
+      try {
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        currentUser = userCredential.user;
+        return userCredential.user;
+      } catch (error) {
+        alert('Error en el registro: ' + error.message);
+        throw error;
+      }
+    }
+    function logout() {
+      if (!auth) return;
+      auth.signOut().then(() => {
+        currentUser = null;
+        updateUIBasedOnAuthState(null);
+        navigateTo('home');
+      });
+    }
+    // Firestore Functions (with fallbacks)
+    async function createTalent(talentData, userId) {
+      if (!db) {
+        alert('Base de datos no disponible. Guardando localmente...');
+        localStorage.setItem('talentData', JSON.stringify(talentData));
+        return 'local';
+      }
+      const talent = {
+        ...talentData,
+        userId: userId,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        verification: {
+          email: true,
+          phone: false,
+          id: false,
+          portfolio: false,
+          level: 'basic'
+        },
+        // Campos para monetización
+        boostExpiry: null,
+        isPremium: false
+      };
+      const docRef = await db.collection('talents').add(talent);
+      return docRef.id;
+    }
+    async function getTalentByUserId(userId) {
+      if (!db) {
+        const localData = localStorage.getItem('talentData');
+        if (localData) {
+          return JSON.parse(localData);
+        }
+        return null;
+      }
+      const snapshot = await db.collection('talents').where('userId', '==', userId).limit(1).get();
+      if (snapshot.empty) return null;
+      const doc = snapshot.docs[0];
+      return { id: doc.id, ...doc.data() };
+    }
+    async function getAllTalents() {
+      if (!db) {
+        return [
+          { fullName: 'Ana López', profession: 'Diseñadora Gráfica Premium', id: '1' },
+          { fullName: 'Carlos Méndez', profession: 'Carpintería de Alta Gama', id: '2' },
+          { fullName: 'Lucía Gómez', profession: 'Gastronomía de Autor', id: '3' }
+        ];
+      }
+      const snapshot = await db.collection('talents').get();
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+    // UI Functions
+    function navigateTo(viewName) {
+      // Hide all views
+      const views = document.querySelectorAll('.view');
+      views.forEach(el => {
+        if (el) el.classList.remove('active');
+      });
+      // Show target view
+      const targetView = document.getElementById(`${viewName}-view`);
+      if (targetView) {
+        targetView.classList.add('active');
+      }
+      // Update navigation links
+      const navLinks = document.querySelectorAll('.nav-link');
+      navLinks.forEach(link => {
+        if (link) link.classList.remove('active');
+      });
+      const activeLink = document.getElementById(`nav-${viewName}`);
+      if (activeLink) {
+        activeLink.classList.add('active');
+      }
+      // Initialize map if needed
+      if (viewName === 'home' && !mapInitialized) {
+        initializeMap();
+      }
+    }
+    function updateUIBasedOnAuthState(user) {
+      const profileLink = document.getElementById('nav-profile');
+      const loginLink = document.getElementById('nav-login');
+      if (user && profileLink && loginLink) {
+        profileLink.style.display = 'block';
+        loginLink.style.display = 'none';
+        loadProfileData();
+      } else if (profileLink && loginLink) {
+        profileLink.style.display = 'none';
+        loginLink.style.display = 'block';
+      }
+    }
+    function loadProfileData() {
+      if (!currentUser) return;
+      getTalentByUserId(currentUser.uid).then(talent => {
+        if (talent) {
+          const profileName = document.getElementById('profile-name');
+          const profileEmail = document.getElementById('profile-email');
+          const profileFullName = document.getElementById('profileFullName');
+          const profileProfession = document.getElementById('profileProfession');
+          const profilePhone = document.getElementById('profilePhone');
+          const profileDescription = document.getElementById('profileDescription');
+          const verificationStatus = document.getElementById('verification-status');
+          if (profileName) profileName.textContent = talent.fullName;
+          if (profileEmail) profileEmail.textContent = currentUser.email || 'email@profesional.com';
+          if (profileFullName) profileFullName.value = talent.fullName;
+          if (profileProfession) profileProfession.value = talent.profession;
+          if (profilePhone) profilePhone.value = talent.phone;
+          if (profileDescription) profileDescription.value = talent.description || '';
+          if (verificationStatus) verificationStatus.textContent = 'Básico';
+        }
+      }).catch(console.error);
+    }
+    function requestVerification() {
+      alert('Funcionalidad de verificación: En una implementación real, esto iniciaría un flujo de verificación con carga de documentos y validación por parte del equipo de Talento Local.');
+    }
+    // Event Listeners - CONFIGURACIÓN COMPLETA SIN onclick EN HTML
+    document.addEventListener('DOMContentLoaded', () => {
+      // Initialize Firebase auth listener
+      initAuthListener();
+      // Set up navigation
+      const navLinks = document.querySelectorAll('.nav-link');
+      navLinks.forEach(link => {
+        if (link) {
+          link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const viewName = this.id.replace('nav-', '');
+            navigateTo(viewName);
+          });
+        }
+      });
+      // Set up radius controls - SIN onclick en HTML
+      const decreaseRadiusBtn = document.getElementById('decreaseRadius');
+      const increaseRadiusBtn = document.getElementById('increaseRadius');
+      if (decreaseRadiusBtn && increaseRadiusBtn) {
+        decreaseRadiusBtn.addEventListener('click', () => adjustRadius(-200));
+        increaseRadiusBtn.addEventListener('click', () => adjustRadius(200));
+      }
+      // Set up register form button
+      const defineLocationBtn = document.getElementById('define-location-btn');
+      if (defineLocationBtn) {
+        defineLocationBtn.addEventListener('click', () => navigateTo('home'));
+      }
+      // Set up login form button
+      const createAccountBtn = document.getElementById('create-account-btn');
+      if (createAccountBtn) {
+        createAccountBtn.addEventListener('click', () => navigateTo('register'));
+      }
+      // Set up logout button
+      const logoutBtn = document.getElementById('logout-btn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => logout());
+      }
+      // Set up boost buttons
+      const boost7Btn = document.getElementById('boost-7');
+      const boost30Btn = document.getElementById('boost-30');
+      if (boost7Btn) {
+        boost7Btn.addEventListener('click', () => purchaseBoost(7));
+      }
+      if (boost30Btn) {
+        boost30Btn.addEventListener('click', () => purchaseBoost(30));
+      }
+      // Set up back to talents button
+      const backToTalentsBtn = document.getElementById('back-to-talents');
+      if (backToTalentsBtn) {
+        backToTalentsBtn.addEventListener('click', () => navigateTo('talents'));
+      }
+      // Set up send message button
+      const sendMessageBtn = document.getElementById('send-message-btn');
+      const messageInput = document.getElementById('message-input');
+      if (sendMessageBtn && messageInput) {
+        sendMessageBtn.addEventListener('click', () => {
+          const message = messageInput.value.trim();
+          if (message) {
+            sendMessage(message);
+            messageInput.value = '';
+          }
+        });
+        messageInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            const message = messageInput.value.trim();
+            if (message) {
+              sendMessage(message);
+              messageInput.value = '';
+            }
+          }
+        });
+      }
+      // Set up form submissions
+      const talentForm = document.getElementById('talentForm');
+      if (talentForm) {
+        talentForm.addEventListener('submit', async function(e) {
+          e.preventDefault();
+          if (!mapData.location) {
+            alert('Por favor, defina su ubicación en el mapa antes de registrar.');
+            return;
+          }
+          const formData = new FormData(this);
+          const talentData = {
+            fullName: formData.get('fullName'),
+            profession: formData.get('profession'),
+            phone: formData.get('phone'),
+            email: formData.get('email'),
+            description: formData.get('description'),
+            location: {
+              lat: ol.proj.toLonLat(mapData.location)[1],
+              lng: ol.proj.toLonLat(mapData.location)[0]
+            },
+            radius: mapData.radius
+          };
+          try {
+            const userId = currentUser ? currentUser.uid : 'anonymous';
+            await createTalent(talentData, userId);
+            alert('¡Perfil registrado exitosamente!');
+          } catch (error) {
+            console.error('Error:', error);
+            alert('Error al registrar el perfil.');
+          }
+        });
+      }
+      const loginForm = document.getElementById('loginForm');
+      if (loginForm) {
+        loginForm.addEventListener('submit', async function(e) {
+          e.preventDefault();
+          const email = document.getElementById('loginEmail').value;
+          const password = document.getElementById('loginPassword').value;
+          try {
+            await login(email, password);
+            navigateTo('profile');
+          } catch (error) {
+            console.error('Login error:', error);
+          }
+        });
+      }
+      const profileForm = document.getElementById('profileForm');
+      if (profileForm) {
+        profileForm.addEventListener('submit', async function(e) {
+          e.preventDefault();
+          if (!currentUser) return;
+          const profileData = {
+            fullName: document.getElementById('profileFullName').value,
+            profession: document.getElementById('profileProfession').value,
+            phone: document.getElementById('profilePhone').value,
+            description: document.getElementById('profileDescription').value
+          };
+          try {
+            await db.collection('talents').doc(currentUser.uid).update(profileData);
+            alert('Perfil actualizado exitosamente');
+          } catch (error) {
+            console.error('Error updating profile:', error);
+            alert('Error al actualizar el perfil.');
+          }
+        });
+      }
+      // Initialize map
+      initializeMap();
+    });
+    // Global functions for compatibility (if needed by other parts)
+    window.navigateTo = navigateTo;
+    window.logout = logout;
+    window.requestVerification = requestVerification;
+    // Boost function
+    function purchaseBoost(days) {
+      alert(`Funcionalidad de promoción: En una implementación real, esto activaría una promoción de ${days} días con cobro automático.`);
+    }
+    // Chat functions
+    function sendMessage(messageText) {
+      if (!currentUser || !window.currentChatId) {
+        alert('No se puede enviar el mensaje. Por favor, inicie sesión.');
+        return;
+      }
+      const messageData = {
+        text: messageText,
+        senderId: currentUser.uid,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        read: false
+      };
+      db.collection('chats')
+        .doc(window.currentChatId)
+        .collection('messages')
+        .add(messageData)
+        .catch(console.error);
+    }
+    // Analytics function
+    function logEvent(type, targetId) {
+      const currentUser = window.currentUser;
+      // No registrar vistas propias
+      if (currentUser && currentUser.uid === targetId) return;
+      db.collection('analytics_logs').add({
+        type: type,
+        targetId: targetId,
+        sourceId: currentUser ? currentUser.uid : null,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+  </script>
 </body>
 </html>
